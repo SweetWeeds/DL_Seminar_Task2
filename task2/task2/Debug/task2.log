@@ -1,0 +1,16 @@
+﻿  task2.cpp
+c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(36): error C2955: 'custom_nn::tensor::Tensor': 클래스 템플릿을(를) 사용하려면 템플릿 인수 목록이 필요합니다.
+  c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(8): note: 'custom_nn::tensor::Tensor' 선언을 참조하십시오.
+  c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(50): note: 컴파일 중인 클래스 템플릿 인스턴스화 'custom_nn::layer::Layer<T>'에 대한 참조를 확인하세요.
+c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(53): error C2955: 'custom_nn::layer::Layer': 클래스 템플릿을(를) 사용하려면 템플릿 인수 목록이 필요합니다.
+  c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(34): note: 'custom_nn::layer::Layer' 선언을 참조하십시오.
+  c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(58): note: 컴파일 중인 클래스 템플릿 인스턴스화 'custom_nn::layer::Conv2D<T>'에 대한 참조를 확인하세요.
+c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(61): error C2955: 'custom_nn::layer::Layer': 클래스 템플릿을(를) 사용하려면 템플릿 인수 목록이 필요합니다.
+  c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(34): note: 'custom_nn::layer::Layer' 선언을 참조하십시오.
+  c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(65): note: 컴파일 중인 클래스 템플릿 인스턴스화 'custom_nn::layer::Affine<T>'에 대한 참조를 확인하세요.
+c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(68): error C2955: 'custom_nn::layer::Layer': 클래스 템플릿을(를) 사용하려면 템플릿 인수 목록이 필요합니다.
+  c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(34): note: 'custom_nn::layer::Layer' 선언을 참조하십시오.
+  c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(70): note: 컴파일 중인 클래스 템플릿 인스턴스화 'custom_nn::layer::ReLU<T>'에 대한 참조를 확인하세요.
+c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(73): error C2955: 'custom_nn::layer::Layer': 클래스 템플릿을(를) 사용하려면 템플릿 인수 목록이 필요합니다.
+  c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(34): note: 'custom_nn::layer::Layer' 선언을 참조하십시오.
+  c:\users\user\workspace\dl_seminar_task2\task2\task2\custom_nn.hpp(75): note: 컴파일 중인 클래스 템플릿 인스턴스화 'custom_nn::layer::MaxPool2D<T>'에 대한 참조를 확인하세요.

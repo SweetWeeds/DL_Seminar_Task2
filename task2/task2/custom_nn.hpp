@@ -48,6 +48,7 @@ namespace custom_nn {
                 if (i > this->size || i < 0) {
                     fprintf(stderr, "[ERROR] Indexing out of range in %d tensor. (index: %d, size: %d)\n",
                         tensor_id, i, this->size);
+                    i = 0;
                 }
                 return this->data[i];
             }
@@ -69,6 +70,19 @@ namespace custom_nn {
                 this->size = new_size;
             }
         };
+    }
+
+    namespace helper {
+        template <typename T>
+        tensor::Tensor<T> im2col(tensor::Tensor<T> input_data,
+            const int Batch, const int Channel, const int Height, const int Width,
+            const int filter_size, const int stride=1, const int pad=0) {
+            /*
+            const OUT_Height = (Height + 2 * pad - filter_size) / stride + 1;
+            const OUT_Width = (Width + 2 * pad - filter_size) / stride + 1;
+            tensor::Tensor<T> img();
+            */
+        }
     }
 
     namespace layer {
@@ -96,7 +110,7 @@ namespace custom_nn {
                 this->bias    = bias;
             }
             // Forward
-            tensor::Tensor<T> forward(tensor::Tensor<T>* p_x) {
+            tensor::Tensor<T> forward() {
                 #ifdef DEBUG_LAYER
                 printf("[INFO:Layer %02d] Forward\n", this->layer_id);
                 #endif
@@ -105,12 +119,16 @@ namespace custom_nn {
              * Back Propagation
              * Return: dout
              */
-            tensor::Tensor<T> backward(tensor::Tensor<T>* p_dout) {
+            tensor::Tensor<T> backward() {
                 #ifdef DEBUG_LAYER
                 printf("[INFO:Layer %02d] Backward\n", this->layer_id);
                 #endif
             }
-            // Weight Update
+            /**
+             * Weight Update
+             *  Update the weights with learning rate.
+             *  T lr: Learning Rate
+             */
             void update(T lr) {
                 #ifdef DEBUG_LAYER
                 printf("[INFO:Layer %02d] Update\n", this->layer_id);
@@ -134,8 +152,21 @@ namespace custom_nn {
         template <typename T>
         class Affine : public Layer<T> {
         private:
+            const int InputSize, OutputSize;
         public:
+            Affine(const int InputSize, const int OutputSize) : InputSize(InputSize), OutputSize(OutputSize),
+                Layer(w_size=InputSize*OutputSize, b_size=OutputSize) {
+                
+            }
+            tensor::Tensor<T> forward(tensor::Tensor<T> x,
+                const int Batch, const int InputSize) {
+                tensor::Tensor<T> ret_T(Batch*OutputSize);
+                for (int b = 0; b < Batch; b++) {
+                    for (int i = 0; i < InputSize; i++) {
 
+                    }
+                }
+            }
         };
 
         template <typename T>

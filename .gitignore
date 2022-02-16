@@ -30,3 +30,8 @@
 *.exe
 *.out
 *.app
+
+task2/.vs/task2/v15/.suo
+task2/.vs/task2/v15/Browse.VC.db
+task2/.vs/task2/v15/Browse.VC.opendb
+task2/task2/Debug/task2.log

@@ -1,8 +1,12 @@
 ﻿#include <iostream>
+#include <cstdio>
 #include "custom_nn.hpp"
 
+using namespace custom_nn::tensor;
+
 int main() {
-    custom_nn::tensor::Tensor<float> t1(10);
-    t1[0] = -1.0;
-    printf("t1[0]: %f\n", t1[0]);
+    int t1_size[2] = { 1, 2 };
+    Tensor<float> t1(2, t1_size);
+    printf("t1 size:%d, %f, %f\n", t1.getSize(), t1[0], t1[1]);
+
 }

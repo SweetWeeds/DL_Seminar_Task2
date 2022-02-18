@@ -31,16 +31,11 @@ using namespace model;
 int main() {
     const int shape[3] = { 1, 2, 3 };
     Tensor<float> t1(3, shape);
-    t1[0] = 1.0;
+    //t1[0] = 1.0;
 
-    /*
     Model<float>* VGG8 = build_vgg8<float>();
     VGG8->load("vgg8_params.bin");
-    printf("[INFO] Forward\n");
     VGG8->forward(&t1);
-    printf("[INFO] Backward\n");
-    VGG8->backward(&t1);
-    */
-    float *data;
-    int data_size = load_data(data, "test.bin");
+    //data_loader::DataLoader<float> dl;
+    //dl.load_data("vgg8_params.bin");
 }

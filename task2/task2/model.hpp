@@ -29,6 +29,7 @@
 
 using namespace tensor;
 using namespace layer;
+using namespace data_loader;
 
 namespace model {
     template <typename T>
@@ -36,6 +37,7 @@ namespace model {
     private:
         Layer<T>* layers[MAX_LAYER_NUM];
         int num_layers = 0;
+        DataLoader<T> dl;
     public:
         Model(Layer<T>* layers[], int num_layers) : num_layers(num_layers) {
             memcpy(this->layers, layers, num_layers * sizeof(Layer<T>*));
@@ -61,28 +63,48 @@ namespace model {
             return dout;
         }
 
-        bool save(const char* fn) {
-
+        int save(const char* fn) {
+            return 0;
         }
 
-        bool load(const char* fn) {
-            std::ifstream is(fn, std::ifstream::binary);
-            T* params = nullptr;
-            if (is) {
-                is.seekg(0, is.end);
-                int length = (int)is.tellg();
-                is.seekg(0, is.beg);
-                params = new T[length];
-                assert(params);
-                is.read((char*)params, length);
-                is.close();
+        int load(const char* fn) {
+            if (dl.load_data(fn)) {
+                #ifdef MODEL_DEBUG
+                printf("[DEBUG:Model:load] Failed to load data (%s).\n", fn);
+                #endif
+                return 1;
             }
-            if (params == nullptr) delete params;
-            return true;
+            const int* w_shape;
+            const int* b_shape;
+            int w_size;
+            int b_size;
+            int w_dim;
+            int b_dim;
+            int idx = 0;
+            for (int i = 0; i < num_layers; i++) {
+                w_shape = this->layers[i]->getWeightShape();
+                b_shape = this->layers[i]->getBiasShape();
+                if (w_shape == nullptr || b_shape == nullptr) {
+                    #ifdef MODEL_DEBUG
+                    printf("[DEBUG:Model:load] %s has empty params.\n", this->layers[i]->getName());
+                    #endif
+                    continue;
+                }
+                w_size  = this->layers[i]->getWeightSize();
+                b_size  = this->layers[i]->getBiasSize();
+                w_dim   = this->layers[i]->getWeightDim();
+                b_dim   = this->layers[i]->getBiasDim();
+                Tensor<T> W(w_dim, w_shape), b(b_dim, b_shape);
+                if (dl.copyDataOfRange(W.getData(), idx, idx + w_size))
+                    printf("[ERROR:Model:load] Failed to load %s layer. (idx:%d, w_size:%d)\n", layers[i]->getName(), idx, w_size);
+                idx += w_size;
+                if (dl.copyDataOfRange(b.getData(), idx, idx + b_size))
+                    printf("[ERROR:Model:load] Failed to load %s layer. (idx:%d, w_size:%d)\n", layers[i]->getName(), idx, w_size);
+                idx += b_size;
+                this->layers[i]->load_params(W, b);
+            }
         }
     };
-
-
 }
 
 #endif

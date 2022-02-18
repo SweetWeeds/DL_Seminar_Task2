@@ -20,7 +20,10 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#define DEBUG
 #define LAYER_DEBUG
+#define MODEL_DEBUG
+//#define TENSOR_DEBUG
 
 #endif
  /** End of tensor.hpp **/

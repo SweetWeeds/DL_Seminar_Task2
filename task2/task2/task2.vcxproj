@@ -151,10 +151,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="memory.cpp" />
     <ClCompile Include="task2.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="custom_nn.hpp" />
+    <ClInclude Include="common.hpp" />
+    <ClInclude Include="data_loader.hpp" />
+    <ClInclude Include="model.hpp" />
+    <ClInclude Include="vgg8.hpp" />
+    <ClInclude Include="layer.hpp" />
+    <ClInclude Include="tensor.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -18,9 +18,27 @@
     <ClCompile Include="task2.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="memory.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="custom_nn.hpp">
+    <ClInclude Include="tensor.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="common.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="vgg8.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="layer.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="model.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="data_loader.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

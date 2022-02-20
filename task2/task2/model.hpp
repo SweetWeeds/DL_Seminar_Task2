@@ -37,10 +37,15 @@ namespace model {
     private:
         Layer<T>* layers[MAX_LAYER_NUM];
         int num_layers = 0;
+        bool is_compiled = false;
+        char* modelName = nullptr;
         DataLoader<T> dl;
     public:
-        Model(Layer<T>* layers[], int num_layers) : num_layers(num_layers) {
+        Model(Layer<T>* layers[], int num_layers, const char* modelName) : num_layers(num_layers) {
             memcpy(this->layers, layers, num_layers * sizeof(Layer<T>*));
+            int modelNameLen = strlen(modelName);
+            this->modelName = new char[modelNameLen];
+            memcpy(this->modelName, modelName, modelNameLen * sizeof(char));
         }
 
         ~Model() {
@@ -50,13 +55,21 @@ namespace model {
         }
 
         Tensor<T>* forward(Tensor<T>* p_x) {
+            if (!this->is_compiled) {
+                printf("[WARNING:Model:forward] %s is not compiled!\n", this->modelName);
+                return nullptr;
+            }
             for (int i = 0; i < num_layers; i++) {
                 p_x = this->layers[i]->forward(p_x);
             }
             return p_x;
         }
 
-        T diff(Tensor<T>* p_x, const char* fileName) {
+        int diff(Tensor<T>* p_x, const char* fileName) {
+            if (!this->is_compiled) {
+                printf("[WARNING:Model:diff] %s is not compiled!\n", this->modelName);
+                return 1;
+            }
             T maxDiff = 0;
             DataLoader<float> dl;
             dl.load_data(fileName);
@@ -71,24 +84,31 @@ namespace model {
                 printf("[INFO] %s layer's max difference: %E\n", this->layers[i]->getName(), maxDiff);
                 idx += p_x->getSize();
             }
-            return maxDiff;
+            return 0;
         }
 
         Tensor<T>* backward(Tensor<T>* dout) {
+            if (!this->is_compiled) {
+                printf("[WARNING:Model:backward] %s is not compiled!\n", this->modelName);
+                return nullptr;
+            }
             for (int i = num_layers - 1; i >= 0; i--) {
                 dout = this->layers[i]->backward(dout);
             }
             return dout;
         }
 
+        // Compile Model: Allocate each layer's output-tensor
         int compile(Tensor<T>* p_x) {
             for (int i = 0; i < num_layers; i++) {
                 p_x = this->layers[i]->compile(p_x);
             }
+            this->is_compiled = true;
             return 0;
         }
 
         int save(const char* fn) {
+            // TODO
             return 0;
         }
 

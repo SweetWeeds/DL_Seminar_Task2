@@ -61,7 +61,7 @@ Model<T>* build_vgg8() {
     // Layer 8 (B, 256) -> (B, 10)
     layers[16] = (Layer<float>*) new FullyConnected<T>(256, 10, "L8_FC");
 
-    Model<T>* model = new Model<T>(layers, 17);
+    Model<T>* model = new Model<T>(layers, 17, "VGG8");
     return model;
 }
 #endif

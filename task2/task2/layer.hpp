@@ -92,18 +92,26 @@ namespace layer {
 
             Tensor<T>* p_column = new Tensor<T>(6, column_shape);
             Tensor<T>& column = *p_column;
-            //const int column_index[6] = { 0, };
-            //const int padded_im_index[4] = { 0, };
+            int column_index[6] = { 0, };
+            int padded_im_index[4] = { 0, };
             for (int b = 0; b < B; b++) {   // Batch
+                column_index[0] = b;
+                padded_im_index[0] = b;
                 for (int c = 0; c < C; c++) {   // Channel
+                    column_index[1] = c;
+                    padded_im_index[1] = c;
                     for (int y = 0; y < k; y++) {   // Kernel Height
                         int y_max = y + s + out_h;
+                        column_index[4] = y;
                         for (int x = 0; x < k; x++) {   // Kernel Width
                             int x_max = x + s * out_w;
+                            column_index[5] = x;
                             for (int oh = 0; oh < out_h; oh++) {    // Output Height
+                                column_index[2] = oh;
+                                padded_im_index[2] = y + s * oh;
                                 for (int ow = 0; ow < out_w; ow++) {    // Output Width
-                                    const int column_index[]    = { b, c, oh, ow, y, x };
-                                    const int padded_im_index[] = { b, c, y + s * oh, x + s * ow };
+                                    column_index[3] = ow;
+                                    padded_im_index[3] = x + s * ow;
                                     column[index_calc(6, column_shape, column_index)] = padded_im[index_calc(4, padded_im_shape, padded_im_index)];
                                 }
                             }
@@ -221,15 +229,18 @@ namespace layer {
             const int* y_shape = this->y.getShape();    // B, out_ch, out_h, out_w
             const int* col_shape = col.getShape();      // B, out_ch, out_h, out_w, k, k
             const int* W_shape = this->p_W->getShape(); // out_ch, in_ch, k, k
+            const int* b_shape = this->p_b->getShape();
             int y_index[4] = { 0, };
             int col_index[6] = { 0, };
             int W_index[4] = { 0, };
+            int b_index[1] = { 0, };
             for (int b = 0; b < B; b++) {
                 y_index[0]   = b;
                 col_index[0] = b;
                 for (int o_ch = 0; o_ch < this->out_ch; o_ch++) {
                     y_index[1] = o_ch;
                     W_index[0] = o_ch;
+                    b_index[0] = o_ch;
                     for (int o_h = 0; o_h < out_h; o_h++) {
                         y_index[2]   = o_h;
                         col_index[2] = o_h;
@@ -249,6 +260,7 @@ namespace layer {
                                     }
                                 }
                             }
+                            this->y[index_calc(4, y_shape, y_index)] += (*this->p_b)[index_calc(1, b_shape, b_index)];
                         }
                     }
                 }
@@ -311,6 +323,9 @@ namespace layer {
                     for (int o = 0; o < out_fmap; o++) {
                         this->y[b*out_fmap + o] += x[b*in_fmap + i] * W[i*out_fmap + o];
                     }
+                }
+                for (int o = 0; o < out_fmap; o++) {
+                    this->y[b*out_fmap + o] += (*this->p_b)[o];
                 }
             }
             return &this->y;
@@ -421,6 +436,7 @@ namespace layer {
                     }
                 }
             }
+            delete p_col;
             return &(this->y);
         }
         virtual Tensor<T>* backward(Tensor<T>& din) {

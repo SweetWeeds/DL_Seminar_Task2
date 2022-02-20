@@ -22,6 +22,7 @@
 
 #include <stdio.h>
 #include <string>
+#include <math.h>
 #include "common.hpp"
 #include "tensor.hpp"
 
@@ -193,7 +194,8 @@ namespace layer {
     private:
         const int in_ch, out_ch, k, p, s;
     public:
-        Conv2D(const int in_ch, const int out_ch, const int k=3, const int p=1, const int s=1, const char* cstr_ln="") : in_ch(in_ch), out_ch(out_ch), k(k), p(p), s(s), Layer<T>(cstr_ln) {
+        Conv2D(const int in_ch, const int out_ch,
+               const int k=3, const int p=1, const int s=1, const char* cstr_ln="") : in_ch(in_ch), out_ch(out_ch), k(k), p(p), s(s), Layer<T>(cstr_ln) {
             int shape_buf[MAX_DIM] = { 0, };
             shape_buf[0] = out_ch; shape_buf[1] = in_ch; shape_buf[2] = k; shape_buf[3] = k;
             this->p_W  = new Tensor<T>(4, shape_buf);  // W[out_ch][in_ch][k][k]
@@ -343,14 +345,13 @@ namespace layer {
         virtual Tensor<T>* forward(Tensor<T>* p_x) {
             this->p_x = p_x;
             Tensor<T>& x = *p_x;
-            const int* out_shape = x.getShape();
             #ifdef LAYER_DEBUG
             printf("[DEBUG:ReLU] Forward\n");
             #endif
             for (int i = 0; i < x.getSize(); i++) {
                 this->y[i] = x[i] < 0 ? 0 : x[i];
             }
-            return &this->y;
+            return &(this->y);
         }
         virtual Tensor<T>* backward(Tensor<T>* p_din) {
             #ifdef LAYER_DEBUG
@@ -364,7 +365,7 @@ namespace layer {
             printf("[DEBUG:LAYER:ReLU] Compile\n");
             #endif
             this->y.reshape(*p_x);
-            return &this->y;
+            return &(this->y);
         }
     };
 
@@ -386,8 +387,8 @@ namespace layer {
             const int  x_dim = x.getDim();      // Dimension: 4
             const int* x_shape = x.getShape();  // B, C, H, W
             const int B = x_shape[0], C = x_shape[1], H = x_shape[2], W = x_shape[3];
-            int out_h = 1 + (int)((H - this->k) / this->s);
-            int out_w = 1 + (int)((W - this->k) / this->s);
+            int out_h = ceilf((H - this->k) / this->s + 1);
+            int out_w = ceilf((W - this->k) / this->s + 1);
             Tensor<T>* p_col = this->im2col(p_x, this->k, this->s);    // col[B][C][out_h][out_w][k][k]
             Tensor<T>& col = *p_col;
             const int* col_shape = col.getShape();
@@ -402,14 +403,17 @@ namespace layer {
                     out_index[1] = c;
                     for (int o_h = 0; o_h < out_h; o_h++) {
                         col_index[2] = o_h;
+                        out_index[2] = o_h;
                         for (int o_w = 0; o_w < out_w; o_w++) {
                             col_index[3] = o_w;
+                            out_index[3] = o_w;
                             T max_val = -INFINITY;
                             for (int k_y = 0; k_y < k; k_y++) {
-                                out_index[2] = k_y;
+                                col_index[4] = k_y;
                                 for (int k_x = 0; k_x < k; k_x++) {
-                                    out_index[3] = k_x;
-                                    max_val = max_val < col[index_calc(6, col_shape, col_index)] ? col[index_calc(6, col_shape, col_index)] : max_val;
+                                    col_index[5] = k_x;
+                                    T tmp = col[index_calc(6, col_shape, col_index)];
+                                    max_val = max_val < tmp ? tmp : max_val;
                                 }
                             }
                             this->y[index_calc(4, out_shape, out_index)] = max_val;
@@ -417,7 +421,7 @@ namespace layer {
                     }
                 }
             }
-            return &this->y;
+            return &(this->y);
         }
         virtual Tensor<T>* backward(Tensor<T>& din) {
             #ifdef LAYER_DEBUG
@@ -432,8 +436,8 @@ namespace layer {
             #endif
             const int* x_shape = p_x->getShape();
             const int B = x_shape[0], C = x_shape[1], H = x_shape[2], W = x_shape[3];
-            int out_h = 1 + (int)((H - this->k) / this->s);
-            int out_w = 1 + (int)((W - this->k) / this->s);
+            int out_h = ceilf((H - this->k) / this->s + 1);
+            int out_w = ceilf((W - this->k) / this->s + 1);
             const int y_shape[] = { B, C, out_h, out_w };
             this->y.reshape(4, y_shape);
             return &this->y;

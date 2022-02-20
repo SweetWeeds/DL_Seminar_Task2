@@ -144,7 +144,7 @@ namespace tensor {
                 this->size = new_size;
                 data = new T[new_size];
                 assert(data);
-                memset(data, 0, new_size);
+                memset(data, 0, new_size * sizeof(T));
 
                 // Reallocate Shape
                 ret = 1;
@@ -191,11 +191,12 @@ namespace tensor {
         }
 
         void dataInit() {
-            memset(data, 0, size);
+            memset(this->data, 0, size * sizeof(T));
         }
 
         T getMaxDiff(Tensor<T>& t) {
             float maxDiff = 0;
+            int idx = 0;
             float tmp;
             if (t.getSize() != this->size) {
                 #ifdef DEBUG_TENSOR
@@ -206,7 +207,10 @@ namespace tensor {
             for (int i = 0; i < this->size; i++) {
                 tmp = this->data[i] - t[i];
                 tmp = tmp < 0 ? -tmp : tmp;
-                maxDiff = maxDiff < tmp ? tmp : maxDiff;
+                if (maxDiff < tmp) {
+                    maxDiff = tmp;
+                    idx = i;
+                }
             }
             return maxDiff;
         }

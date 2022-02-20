@@ -68,6 +68,7 @@ namespace model {
                 dl.copyDataOfRange(p_data, idx, idx + p_x->getSize());
                 T tmp = golden_tensor.getMaxDiff(*p_x);
                 maxDiff = maxDiff < tmp ? tmp : maxDiff;
+                printf("[INFO] %s layer's max difference: %E\n", this->layers[i]->getName(), maxDiff);
                 idx += p_x->getSize();
             }
             return maxDiff;

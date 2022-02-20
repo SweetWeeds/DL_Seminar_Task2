@@ -49,11 +49,28 @@ namespace model {
             }
         }
 
-        Tensor<T>* forward(Tensor<T>* x) {
+        Tensor<T>* forward(Tensor<T>* p_x) {
             for (int i = 0; i < num_layers; i++) {
-                x = this->layers[i]->forward(x);
+                p_x = this->layers[i]->forward(p_x);
             }
-            return x;
+            return p_x;
+        }
+
+        T diff(Tensor<T>* p_x, const char* fileName) {
+            T maxDiff = 0;
+            DataLoader<float> dl;
+            dl.load_data(fileName);
+            int idx = 0;
+            for (int i = 0; i < num_layers; i++) {
+                p_x = this->layers[i]->forward(p_x);
+                Tensor<T> golden_tensor(p_x->getDim(), p_x->getShape());
+                T* p_data = golden_tensor.getData();
+                dl.copyDataOfRange(p_data, idx, idx + p_x->getSize());
+                T tmp = golden_tensor.getMaxDiff(*p_x);
+                maxDiff = maxDiff < tmp ? tmp : maxDiff;
+                idx += p_x->getSize();
+            }
+            return maxDiff;
         }
 
         Tensor<T>* backward(Tensor<T>* dout) {
@@ -61,6 +78,13 @@ namespace model {
                 dout = this->layers[i]->backward(dout);
             }
             return dout;
+        }
+
+        int compile(Tensor<T>* p_x) {
+            for (int i = 0; i < num_layers; i++) {
+                p_x = this->layers[i]->compile(p_x);
+            }
+            return 0;
         }
 
         int save(const char* fn) {
@@ -76,10 +100,7 @@ namespace model {
             }
             const int* w_shape;
             const int* b_shape;
-            int w_size;
-            int b_size;
-            int w_dim;
-            int b_dim;
+            int w_size, b_size, w_dim, b_dim;
             int idx = 0;
             for (int i = 0; i < num_layers; i++) {
                 w_shape = this->layers[i]->getWeightShape();
@@ -94,15 +115,17 @@ namespace model {
                 b_size  = this->layers[i]->getBiasSize();
                 w_dim   = this->layers[i]->getWeightDim();
                 b_dim   = this->layers[i]->getBiasDim();
-                Tensor<T> W(w_dim, w_shape), b(b_dim, b_shape);
-                if (dl.copyDataOfRange(W.getData(), idx, idx + w_size))
+                Tensor<T>* p_W = new Tensor<T>(w_dim, w_shape);
+                Tensor<T>* p_b = new Tensor<T>(b_dim, b_shape);
+                if (dl.copyDataOfRange(p_W->getData(), idx, idx + w_size))
                     printf("[ERROR:Model:load] Failed to load %s layer. (idx:%d, w_size:%d)\n", layers[i]->getName(), idx, w_size);
                 idx += w_size;
-                if (dl.copyDataOfRange(b.getData(), idx, idx + b_size))
+                if (dl.copyDataOfRange(p_b->getData(), idx, idx + b_size))
                     printf("[ERROR:Model:load] Failed to load %s layer. (idx:%d, w_size:%d)\n", layers[i]->getName(), idx, w_size);
                 idx += b_size;
-                this->layers[i]->load_params(W, b);
+                this->layers[i]->load_params(p_W, p_b);
             }
+            return 0;
         }
     };
 }

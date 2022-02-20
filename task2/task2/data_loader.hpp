@@ -44,7 +44,7 @@ namespace data_loader {
                 #endif
                 return 1;
             }
-            memcpy(data, this->data + from, to - from);
+            memcpy(data, this->data + from, (to - from) * sizeof(T));
             return 0;
         }
 

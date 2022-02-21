@@ -29,13 +29,22 @@ using namespace layer;
 using namespace model;
 
 int input_test() {
+    int idx = 0;
     DataLoader<float> input_loader;
     input_loader.load_data("input.bin");
     int input_size = 1 * 1 * 28 * 28;
     const int input_shape[4] = { 1, 1, 28, 28 };   // (1, 1, 28, 28)
     float* input_data = new float[1 * 1 * 28 * 28];
-    input_loader.copyDataOfRange(input_data, 0, input_size);
+    input_loader.copyDataOfRange(input_data, idx, idx + input_size);
     Tensor<float> input_tensor(input_data, 4, input_size, input_shape);
+    idx += input_size;
+
+    int label_size = 1 * 10;
+    const int label_shape[2] = { 1, 10 };
+    float* label_data = new float[1 * 10];
+    input_loader.copyDataOfRange(label_data, idx, idx + label_size);
+    Tensor<float> label_tensor(label_data, 2, label_size, label_shape);
+    
     //t1[0] = 1.0;
 
     printf("[INFO] Building VGG8 Model... ");
@@ -51,7 +60,7 @@ int input_test() {
     printf("Complete!\n");
 
     printf("[INFO] Comparing with golden model in Python Numpy...\n");
-    model->diff(&input_tensor, "intermediate_fmap.bin");
+    model->diff(&input_tensor, &label_tensor, "intermediate_fmap.bin");
 
     delete model;
     return 0;

@@ -20,9 +20,10 @@
 #ifndef TENSOR_H
 #define TENSOR_H
 
-#include <cstdio>
-#include <cassert>
-#include <cstring>
+#include <math.h>
+#include <stdio.h>
+#include <assert.h>
+#include <string.h>
 #include "common.hpp"
 
 namespace tensor {
@@ -206,15 +207,14 @@ namespace tensor {
                 #endif
             }
             for (int i = 0; i < this->size; i++) {
-                tmp = this->data[i] - t[i];
-                tmp = tmp < 0 ? -tmp : tmp;
+                tmp = abs(this->data[i] - t[i]);
                 if (maxDiff < tmp) {
                     maxDiff = tmp;
                     error_rate = maxDiff / this->data[i] * 100.0f;
                     idx = i;
                 }
             }
-            return error_rate;
+            return abs(error_rate);
         }
     };
     inline int index_calc(const int dim, const int* shape, const int* index) {

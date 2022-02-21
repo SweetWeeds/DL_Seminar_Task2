@@ -41,7 +41,7 @@ namespace model {
         char* modelName = nullptr;
         DataLoader<T> dl;
     public:
-        Model(Layer<T>* layers[], Criterion<T>* criterion, int num_layers, const char* modelName) : num_layers(num_layers) {
+        Model(Layer<T>* layers[], Criterion<T>* criterion, int num_layers, const char* modelName) : num_layers(num_layers), criterion(criterion) {
             memcpy(this->layers, layers, num_layers * sizeof(Layer<T>*));
             int modelNameLen = strlen(modelName);
             this->modelName = new char[modelNameLen];
@@ -66,7 +66,7 @@ namespace model {
             return p_x;
         }
 
-        int diff(Tensor<T>* p_x, const char* fileName) {
+        int diff(Tensor<T>* p_x, Tensor<T>* p_t, const char* fileName) {
             if (!this->is_compiled) {
                 fprintf(stderr, "[WARNING:Model:diff] %s is not compiled!\n", this->modelName);
                 return 1;
@@ -75,7 +75,7 @@ namespace model {
             DataLoader<float> dl;
             dl.load_data(fileName);
             int idx = 0;
-            // Forward
+            // Forward Diffrenece
             printf("[INFO] Starting forward compare...\n");
             for (int i = 0; i < num_layers; i++) {
                 p_x = this->layers[i]->forward(p_x);
@@ -87,12 +87,58 @@ namespace model {
                 printf("[INFO] %s layer's max difference:\t %.4f%%\n", this->layers[i]->getName(), tmp);
                 idx += p_x->getSize();
             }
-            // Calculate Loss
-            //p_x = this->criterion->forward(p_x, );
+
+            // Calculate Softmax Difference
+            Tensor<T>* p_y = this->criterion->forward(p_x);
+            float golden_y[10] = { 0, };
+            dl.copyDataOfRange(golden_y, idx, idx + 10);
+            idx += 10;
+            float y_maxDiff = -INFINITY;
+            int y_maxDiff_idx = 0;
+            for (int i = 0; i < 10; i++) {
+                float tmp = abs((*p_y)[i] - golden_y[i]);
+                if (y_maxDiff < tmp) {
+                    y_maxDiff = tmp;
+                    y_maxDiff_idx = i;
+                }
+            }
+            printf("[INFO] Softmax Result's difference:\t %.4f%%\n", y_maxDiff / (*p_y)[y_maxDiff_idx] * 100.0);
+
+            // Calculate Loss Difference
+            float loss = this->criterion->loss_func(p_t);
+            float golden_loss;
+            dl.copyDataOfRange(&golden_loss, idx, idx + 1);
+            idx += 1;
+            printf("[INFO] Loss Result's difference:\t %.4f%%\n", abs(loss-golden_loss) / golden_loss * 100.0);
+
             // Backward
             printf("[INFO] Starting backward compare...\n");
-            for (int i = num_layers - 1; i >= 0; i--) {
+            Tensor<T>* p_dout = nullptr;
+            p_dout = this->criterion->backward(p_dout);
+            T* p_data = new T[p_dout->getSize()];
+            dl.copyDataOfRange(p_data, idx, idx + p_dout->getSize());
+            Tensor<T> golden_tensor(p_data, p_dout->getDim(), p_dout->getSize(), p_dout->getShape());
+            idx += golden_tensor.getSize();
+            y_maxDiff = -INFINITY;
+            y_maxDiff_idx = 0;
+            for (int i = 0; i < p_dout->getSize(); i++) {
+                float tmp = abs((*p_dout)[i] - golden_tensor[i]);
+                if (y_maxDiff < tmp) {
+                    y_maxDiff = tmp;
+                    y_maxDiff_idx = i;
+                }
+            }
+            printf("[INFO] Cross-Entropy-Error Backward Result's difference:\t %.4f%%\n", y_maxDiff / golden_tensor[y_maxDiff_idx] * 100.0);
 
+            for (int i = num_layers - 1; i >= 0; i--) {
+                p_dout = this->layers[i]->backward(p_dout);
+                Tensor<T> golden_tensor(p_dout->getDim(), p_dout->getShape());
+                T* p_data = golden_tensor.getData();
+                dl.copyDataOfRange(p_data, idx, idx + p_dout->getSize());
+                float tmp = golden_tensor.getDiffError(*p_dout);
+                //maxDiff = maxDiff < tmp ? tmp : maxDiff;
+                printf("[INFO] %s layer's max difference:\t %.4f%%\n", this->layers[i]->getName(), tmp);
+                idx += p_dout->getSize();
             }
             return 0;
         }
@@ -113,6 +159,7 @@ namespace model {
             for (int i = 0; i < num_layers; i++) {
                 p_x = this->layers[i]->compile(p_x);
             }
+            this->criterion->compile(p_x);
             this->is_compiled = true;
             return 0;
         }

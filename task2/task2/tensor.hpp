@@ -117,10 +117,12 @@ namespace tensor {
 
         // Indexing Operator([]) Overloading
         T& operator[](int idx) {
-            //if (idx > this->size || idx < 0) {
-            //    printf("[WARNING:Tensor:operator[]] Indexing Out of Range (size:%d, idx:%d)\n", this->size, idx);
-            //    return data[ idx < 0 ? 0 : (this->size-1) ];    // Return data[0] or data[size-1]
-            //}
+            #ifdef TENSOR_DEBUG
+            if (idx > this->size || idx < 0) {
+                printf("[WARNING:Tensor:operator[]] Indexing Out of Range (size:%d, idx:%d)\n", this->size, idx);
+                return data[ idx < 0 ? 0 : (this->size-1) ];    // Return data[0] or data[size-1]
+            }
+            #endif
             return data[idx];
         }
 
@@ -192,8 +194,9 @@ namespace tensor {
             memset(this->data, 0, size * sizeof(T));
         }
 
-        T getMaxDiff(Tensor<T>& t) {
-            float maxDiff = 0;
+        T getDiffError(Tensor<T>& t) {
+            T maxDiff = 0;
+            float error_rate = 0;
             int idx = 0;
             float tmp;
             if (t.getSize() != this->size) {
@@ -207,10 +210,11 @@ namespace tensor {
                 tmp = tmp < 0 ? -tmp : tmp;
                 if (maxDiff < tmp) {
                     maxDiff = tmp;
+                    error_rate = maxDiff / this->data[i] * 100.0f;
                     idx = i;
                 }
             }
-            return maxDiff;
+            return error_rate;
         }
     };
     inline int index_calc(const int dim, const int* shape, const int* index) {

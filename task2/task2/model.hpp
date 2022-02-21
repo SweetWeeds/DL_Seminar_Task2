@@ -57,7 +57,7 @@ namespace model {
 
         Tensor<T>* forward(Tensor<T>* p_x) {
             if (!this->is_compiled) {
-                printf("[WARNING:Model:forward] %s is not compiled!\n", this->modelName);
+                fprintf(stderr, "[WARNING:Model:forward] %s is not compiled!\n", this->modelName);
                 return nullptr;
             }
             for (int i = 0; i < num_layers; i++) {
@@ -68,7 +68,7 @@ namespace model {
 
         int diff(Tensor<T>* p_x, const char* fileName) {
             if (!this->is_compiled) {
-                printf("[WARNING:Model:diff] %s is not compiled!\n", this->modelName);
+                fprintf(stderr, "[WARNING:Model:diff] %s is not compiled!\n", this->modelName);
                 return 1;
             }
             T maxDiff = 0;
@@ -82,9 +82,9 @@ namespace model {
                 Tensor<T> golden_tensor(p_x->getDim(), p_x->getShape());
                 T* p_data = golden_tensor.getData();
                 dl.copyDataOfRange(p_data, idx, idx + p_x->getSize());
-                T tmp = golden_tensor.getMaxDiff(*p_x);
-                maxDiff = maxDiff < tmp ? tmp : maxDiff;
-                printf("[INFO] %s layer's max difference:\t %e\n", this->layers[i]->getName(), maxDiff);
+                float tmp = golden_tensor.getDiffError(*p_x);
+                //maxDiff = maxDiff < tmp ? tmp : maxDiff;
+                printf("[INFO] %s layer's max difference:\t %.4f%%\n", this->layers[i]->getName(), tmp);
                 idx += p_x->getSize();
             }
             // Calculate Loss
@@ -99,7 +99,7 @@ namespace model {
 
         Tensor<T>* backward(Tensor<T>* dout) {
             if (!this->is_compiled) {
-                printf("[WARNING:Model:backward] %s is not compiled!\n", this->modelName);
+                fprintf(stderr, "[WARNING:Model:backward] %s is not compiled!\n", this->modelName);
                 return nullptr;
             }
             for (int i = num_layers - 1; i >= 0; i--) {
@@ -149,10 +149,10 @@ namespace model {
                 Tensor<T>* p_W = new Tensor<T>(w_dim, w_shape);
                 Tensor<T>* p_b = new Tensor<T>(b_dim, b_shape);
                 if (dl.copyDataOfRange(p_W->getData(), idx, idx + w_size))
-                    printf("[ERROR:Model:load] Failed to load %s layer. (idx:%d, w_size:%d)\n", layers[i]->getName(), idx, w_size);
+                    fprintf(stderr, "[ERROR:Model:load] Failed to load %s layer. (idx:%d, w_size:%d)\n", layers[i]->getName(), idx, w_size);
                 idx += w_size;
                 if (dl.copyDataOfRange(p_b->getData(), idx, idx + b_size))
-                    printf("[ERROR:Model:load] Failed to load %s layer. (idx:%d, w_size:%d)\n", layers[i]->getName(), idx, w_size);
+                    fprintf(stderr, "[ERROR:Model:load] Failed to load %s layer. (idx:%d, w_size:%d)\n", layers[i]->getName(), idx, w_size);
                 idx += b_size;
                 this->layers[i]->load_params(p_W, p_b);
             }

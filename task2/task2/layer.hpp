@@ -190,6 +190,16 @@ namespace layer {
             this->p_dout = p_dout;
             return &din;
         }
+        virtual void update(float lr=0.001) {
+            const int W_size = p_W->getSize();
+            const int b_size = p_b->getSize();
+            for (int i = 0; i < W_size; i++) {
+                (*p_W)[i] -= lr * (*p_dW)[i];
+            }
+            for (int i = 0; i < b_size; i++) {
+                (*p_b)[i] -= lr * (*p_db)[i];
+            }
+        }
         // Prepare Layer's output-tensor(y)
         virtual Tensor<T>* compile(Tensor<T>* p_x) {
             #ifdef LAYER_DEBUG
@@ -237,6 +247,7 @@ namespace layer {
     class Conv2D : Layer<T> {
     private:
         const int in_ch, out_ch, k, p, s;
+        Tensor<T>* p_col = nullptr;
     public:
         Conv2D(const int in_ch, const int out_ch,
                const int k=3, const int p=1, const int s=1, const char* cstr_ln="") : in_ch(in_ch), out_ch(out_ch), k(k), p(p), s(s), Layer<T>(cstr_ln) {
@@ -248,10 +259,14 @@ namespace layer {
             this->p_b  = new Tensor<T>(1, shape_buf);  // b[out_ch];
             this->p_db = new Tensor<T>(1, shape_buf);
         }
+        ~Conv2D() {
+            delete this->p_col;
+        }
         virtual Tensor<T>* forward(Tensor<T>* p_x) {
             #ifdef LAYER_DEBUG
             printf("[DEBUG:Conv2D] Forward\n");
             #endif
+            // Prepare
             this->p_x = p_x;
             Tensor<T>& x = *p_x;
             const int  x_dim   = x.getDim();      // Dimension: 4
@@ -259,8 +274,12 @@ namespace layer {
             const int B = x_shape[0], C = x_shape[1], H = x_shape[2], W = x_shape[3];
             int out_h = 1 + (int)( (H - this->k + 2 * this->p) / this->s );
             int out_w = 1 + (int)( (W - this->k + 2 * this->p) / this->s );
-            Tensor<T>* p_col = this->im2col(p_x, this->k, this->s, this->p);    // col[B][in_ch][out_h][out_w][k][k]
-            Tensor<T>& col = *p_col;
+
+            if (this->p_col) delete p_col;
+            this->p_col = this->im2col(p_x, this->k, this->s, this->p);    // col[B][in_ch][out_h][out_w][k][k]
+            Tensor<T>& col = *this->p_col;
+
+            // Eval
             this->y.dataInit();
             const int* y_shape = this->y.getShape();    // B, out_ch, out_h, out_w
             const int* col_shape = col.getShape();      // B, out_ch, out_h, out_w, k, k
@@ -283,7 +302,6 @@ namespace layer {
                         for (int o_w = 0; o_w < out_w; o_w++) {
                             y_index[3]   = o_w;
                             col_index[3] = o_w;
-                            // Dot-Product
                             for (int i_ch = 0; i_ch < in_ch; i_ch++) {
                                 col_index[1] = i_ch;
                                 W_index[1]   = i_ch;
@@ -297,14 +315,13 @@ namespace layer {
                                     }
                                 }
                             }
-                            // End of dot-product
                             this->y[index_calc(4, y_shape, y_index)] += (*this->p_b)[index_calc(1, b_shape, b_index)];
                         }
                     }
                 }
             }
             //if (this->y.shapeCheck())
-            delete p_col;
+            //delete p_col;
             return &(this->y);
         }
         virtual Tensor<T>* backward(Tensor<T>* p_dout) {
@@ -312,6 +329,83 @@ namespace layer {
             printf("[DEBUG:Conv2D] Backward\n");
             #endif
             this->p_dout = p_dout;
+            Tensor<T>& dout = *p_dout;
+            Tensor<T>& db = *p_db;
+            Tensor<T>& dW = *p_dW;
+            Tensor<T>& col = *p_col;
+            const int* dout_shape = dout.getShape();
+            const int* db_shape = db.getShape();
+            const int* dW_shape = dW.getShape();
+            const int* col_shape = col.getShape();
+            const int B = dout_shape[0], C = dout_shape[1], H = dout_shape[2], W = dout_shape[3];
+
+            // Calculate derivative-bias (self.db = np.sum(dout, axis=0))
+            int dout_index[4] = { 0, }; // dout[B][out_ch][out_h][out_w]
+            int db_index[2] = { 0, };
+            db.dataInit();
+            for (int b = 0; b < B; b++) {
+                dout_index[0] = b;
+                db_index[0] = b;
+                for (int c = 0; c < C; c++) {
+                    dout_index[1] = c;
+                    db_index[1] = c;
+                    T sum = 0;
+                    for (int h = 0; h < H; h++) {
+                        dout_index[2] = h;
+                        for (int w = 0; w < W; w++) {
+                            dout_index[3] = w;
+                            sum += dout[index_calc(4, dout_shape, dout_index)];
+                        }
+                    }
+                    db[index_calc(2, db_shape, db_index)] = sum;
+                }
+            }
+
+            // Calculate derivative-Weight (self.dW = np.dot(self.col.T, dout))
+            int dW_index[4] = { 0, };   // dW[out_ch][in_ch][k][k]
+            int col_index[6] = { 0, };  // col[B][in_ch][out_h][out_w][k][k] -> col.T[B][out_h][out_w][in_ch*k*k]
+            dW.dataInit();
+            for (int b = 0; b < B; b++) {
+                dout_index[0] = b;
+                col_index[0]  = b;
+                for (int o_ch = 0; o_ch < C; o_ch++) {
+                    dW_index[0] = o_ch;
+                    dout_index[1] = o_ch;
+                    for (int i_ch = 0; i_ch < in_ch; i_ch++) {
+                        dW_index[1] = i_ch;
+                        col_index[1] = i_ch;
+                        for (int o_h = 0; o_h < H; o_h++) {
+                            dout_index[2] = o_h;
+                            col_index[2] = o_h;
+                            for (int o_w = 0; o_w < W; o_w++) {
+                                dout_index[3] = o_w;
+                                col_index[3] = o_w;
+                                for (int k_y = 0; k_y < this->k; k_y++) {
+                                    dW_index[2] = k_y;
+                                    col_index[4] = k - k_y; // Transpose
+                                    for (int k_x = 0; k_x < this->k; k_x++) {
+                                        dW_index[3] = k_x;
+                                        col_index[5] = k - k_x; // Transpose
+                                        dW[index_calc(4, dW_shape, dW_index)] += 
+                                            dout[index_calc(4, dout_shape, dout_index)] * col[index_calc(6, col_shape, col_index)];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Calculate derivative-x(din)
+            Tensor<T>* p_dcol = new Tensor<T>(col.getDim(), col.getShape());
+            Tensor<T>& dcol = *p_dcol;
+            // dcol = np.dot(dout, self.col_W.T)
+            for (int b = 0; b < B; b++) {
+                for (int )
+            Tensor<T>* p_din = this->col2im();
+
+            this->din = *p_din;
+            delete p_din;
             return &this->din;
         }
         virtual Tensor<T>* compile(Tensor<T>* p_x) {

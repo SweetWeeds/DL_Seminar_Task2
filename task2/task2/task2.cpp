@@ -38,15 +38,37 @@ int input_test() {
     Tensor<float> input_tensor(input_data, 4, input_size, input_shape);
     //t1[0] = 1.0;
 
-    Model<float>* VGG8 = build_vgg8<float>();
-    VGG8->load("vgg8_params.bin");
-    VGG8->compile(&input_tensor);
-    //Tensor<float>* y = VGG8->forward(&input_tensor);
-    VGG8->diff(&input_tensor, "intermediate_fmap.bin");
+    printf("[INFO] Building VGG8 Model... ");
+    Model<float>* model = vgg8::build<float>();
+    printf("Complete!\n");
+
+    printf("[INFO] Loading Parameters... ");
+    model->load("vgg8_params.bin");
+    printf("Complete!\n");
+
+    printf("[INFO] Compiling Model... ");
+    model->compile(&input_tensor);
+    printf("Complete!\n");
+
+    printf("[INFO] Comparing with golden model in Python Numpy...\n");
+    model->diff(&input_tensor, "intermediate_fmap.bin");
+
+    delete model;
     return 0;
 }
 
+void printIntro() {
+    printf("******************************************\n");
+    printf("*                                        *\n");
+    printf("*       Deep Learning Seminar Task2      *\n");
+    printf("*         VGG8 C++ Implementation        *\n");
+    printf("*              Hankyul Kwon              *\n");
+    printf("*                                        *\n");
+    printf("******************************************\n");
+}
+
 int main() {
+    printIntro();
     input_test();
     return 0;
 }

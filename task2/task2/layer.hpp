@@ -7,11 +7,15 @@
  * Program date: 2022.02.17.
  *
  * Written on Feb 17, 2022
- * Modified on Feb 17, 2022
+ * Modified on Feb 21, 2022
  * Modification History:
  *      1. Written by Hankyul Kwon
- *      2. Modified by Han Kyul Kwon on April 27, 2017
- *          (a) Add codes for normal execution. (on parctice hours)
+ *      2. Modified by Han Kyul Kwon on Feb 17, 2022
+ *          (a) Designed top layout of classes.
+ *      3. Modified by Han Kyul Kwon on Feb 20, 2022
+ *          (a) Conv2D, FullyConnected forward method complete.
+ *      4. Modified by Han Kyul Kwon on Feb 21, 2022
+ *          (a) Add SoftmaxWithLoss class.
  *
  * Compiler used: MSVC++ 14.16 (Visual Studio 2017 version 15.9)
  *
@@ -26,12 +30,10 @@
 #include "common.hpp"
 #include "tensor.hpp"
 
-#define MAX_DIM 10
-
-using namespace std;
-using namespace tensor;
-
 namespace layer {
+    using namespace std;
+    using namespace tensor;
+
     template <typename T>
     class Layer {
     private:
@@ -43,8 +45,8 @@ namespace layer {
         Tensor<T>* p_db = nullptr;    // derivative-bias
         Tensor<T>* p_x;     // Input from prev-layer
         Tensor<T>  y;       // Output of current-layer
-        Tensor<T>* p_din;   // derviative-In
-        Tensor<T>  dout;    // derviative-Out
+        Tensor<T>* p_dout;   // derviative-In
+        Tensor<T>  din;    // derviative-Out
 
         // Padding
         Tensor<T>* pad(Tensor<T> *p_x, const int p) {
@@ -128,8 +130,42 @@ namespace layer {
             Tensor<T>& col = *p_col;
             const int* col_shape = col.getShape();
             const int B = col_shape[0], C = col_shape[1], H = col_shape[2], W = col_shape[3];
-            int out_h = (H + 2 * p - k) / s + 1;
-            int out_w = (W + 2 * p - k) / s + 1;
+            const int out_h = (H + 2 * p - k) / s + 1;
+            const int out_w = (W + 2 * p - k) / s + 1;
+
+            const int im_shape[] = { B, C, H + 2 * p + s - 1, W + 2 * p + s - 1 };
+            const int col_shape[] = { B, C, out_h, out_w, k, k };
+            Tensor<T>* p_im = new Tensor<T>(4, im_shape);
+            Tensor<T>& im = *p_im;
+
+            int im_index[4] = { 0, };
+            int col_index[6] = { 0, };
+            for (int b = 0; b < B; b++) {
+                im_index[0] = b;
+                col_index[0] = b;
+                for (int c = 0; c < C; c++) {
+                    im_index[1] = c;
+                    col_index[1] = c;
+                    for (int y = 0; y < k; y++) {
+                        int y_max = y + s * out_h;
+                        col_index[4] = y;
+                        for (int x = 0; x < k; x++) {
+                            int x_max = x + s * out_w;
+                            col_index[5] = x;
+                            for (int oh = 0; oh < out_h; oh++) {
+                                im_index[2] = y + s * oh;
+                                col_index[2] = oh;
+                                for (int ow = 0; ow < out_w; ow++) {
+                                    im_index[3] = x + s * ow;
+                                    col_index[3] = ow;
+                                    im[index_calc(4, im_shape, im_index)] += col[index_calc(6, col_shape, col_index)];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return p_im;
         }
     public:
         Layer(const char* cstr_layerName=nullptr) : layerName(cstr_layerName) {
@@ -147,12 +183,12 @@ namespace layer {
             this->p_x = p_x;
             return &y;
         }
-        virtual Tensor<T>* backward(Tensor<T>* p_din) {
+        virtual Tensor<T>* backward(Tensor<T>* p_dout) {
             #ifdef LAYER_DEBUG
             printf("[DEBUG:Layer] Backward\n");
             #endif
-            this->p_din = p_din;
-            return &dout;
+            this->p_dout = p_dout;
+            return &din;
         }
         // Prepare Layer's output-tensor(y)
         virtual Tensor<T>* compile(Tensor<T>* p_x) {
@@ -204,7 +240,7 @@ namespace layer {
     public:
         Conv2D(const int in_ch, const int out_ch,
                const int k=3, const int p=1, const int s=1, const char* cstr_ln="") : in_ch(in_ch), out_ch(out_ch), k(k), p(p), s(s), Layer<T>(cstr_ln) {
-            int shape_buf[MAX_DIM] = { 0, };
+            int shape_buf[MAX_TENSOR_DIM] = { 0, };
             shape_buf[0] = out_ch; shape_buf[1] = in_ch; shape_buf[2] = k; shape_buf[3] = k;
             this->p_W  = new Tensor<T>(4, shape_buf);  // W[out_ch][in_ch][k][k]
             this->p_dW = new Tensor<T>(4, shape_buf);
@@ -247,6 +283,7 @@ namespace layer {
                         for (int o_w = 0; o_w < out_w; o_w++) {
                             y_index[3]   = o_w;
                             col_index[3] = o_w;
+                            // Dot-Product
                             for (int i_ch = 0; i_ch < in_ch; i_ch++) {
                                 col_index[1] = i_ch;
                                 W_index[1]   = i_ch;
@@ -260,6 +297,7 @@ namespace layer {
                                     }
                                 }
                             }
+                            // End of dot-product
                             this->y[index_calc(4, y_shape, y_index)] += (*this->p_b)[index_calc(1, b_shape, b_index)];
                         }
                     }
@@ -269,12 +307,12 @@ namespace layer {
             delete p_col;
             return &(this->y);
         }
-        virtual Tensor<T>* backward(Tensor<T>* p_din) {
+        virtual Tensor<T>* backward(Tensor<T>* p_dout) {
             #ifdef LAYER_DEBUG
             printf("[DEBUG:Conv2D] Backward\n");
             #endif
-            this->p_din = p_din;
-            return &this->dout;
+            this->p_dout = p_dout;
+            return &this->din;
         }
         virtual Tensor<T>* compile(Tensor<T>* p_x) {
             #ifdef LAYER_DEBUG
@@ -288,7 +326,7 @@ namespace layer {
             int out_w = 1 + ((W - this->k + 2 * this->p) / this->s);
             const int y_shape[] = { B, this->out_ch, out_h, out_w };
             this->y.reshape(4, y_shape);    // y[B][out_ch][out_h][out_w]
-            this->dout.reshape(4, y_shape);
+            this->din.reshape(4, y_shape);
             return &this->y;
         }
     };
@@ -299,7 +337,7 @@ namespace layer {
         const int in_fmap, out_fmap;
     public:
         FullyConnected(const int in_fmap, const int out_fmap, const char* cstr_ln) : in_fmap(in_fmap), out_fmap(out_fmap), Layer<T>(cstr_ln) {
-            int shape_buf[MAX_DIM] = { 0, };
+            int shape_buf[MAX_TENSOR_DIM] = { 0, };
             shape_buf[0] = in_fmap; shape_buf[1] = out_fmap;
             this->p_W  = new Tensor<T>(2, shape_buf);     // W[in_fmap][out_fmap]
             this->p_dW = new Tensor<T>(2, shape_buf);     // dW[in_fmap][out_fmap]
@@ -330,13 +368,13 @@ namespace layer {
             }
             return &this->y;
         }
-        virtual Tensor<T>* backward(Tensor<T>* p_din) {
+        virtual Tensor<T>* backward(Tensor<T>* p_dout) {
             #ifdef LAYER_DEBUG
             printf("[DEBUG:FullyConnected] Backward\n");
             #endif
-            this->p_din = p_din;
-            Tensor<T>& din = *p_din;
-            return &this->dout;
+            this->p_dout = p_dout;
+            Tensor<T>& din = *p_dout;
+            return &this->din;
         }
         virtual Tensor<T>* compile(Tensor<T>* p_x) {
             #ifdef LAYER_DEBUG
@@ -345,7 +383,7 @@ namespace layer {
             const int* x_shape = p_x->getShape();
             const int y_shape[] = { x_shape[0], this->out_fmap };
             this->y.reshape(2, y_shape);
-            this->dout.reshape(2, y_shape);
+            this->din.reshape(2, y_shape);
             return &this->y;
         }
     };
@@ -368,12 +406,12 @@ namespace layer {
             }
             return &(this->y);
         }
-        virtual Tensor<T>* backward(Tensor<T>* p_din) {
+        virtual Tensor<T>* backward(Tensor<T>* p_dout) {
             #ifdef LAYER_DEBUG
             printf("[DEBUG:ReLU] Backward\n");
             #endif
-            this->p_din = p_din;
-            return &this->dout;
+            this->p_dout = p_dout;
+            return &this->din;
         }
         virtual Tensor<T>* compile(Tensor<T>* p_x) {
             #ifdef LAYER_DEBUG
@@ -389,6 +427,7 @@ namespace layer {
     class MaxPool2D : Layer<T> {
     private:
         const int k, s; // k: kernel size, s: stride
+        Tensor<int> argmax; // Argument Max
     public:
         MaxPool2D(const int k=2, const int s=2, const char* cstr_ln="") : k(k), s(s), Layer<T>(cstr_ln) {
 
@@ -423,15 +462,20 @@ namespace layer {
                             col_index[3] = o_w;
                             out_index[3] = o_w;
                             T max_val = -INFINITY;
+                            int argmax = 0;
                             for (int k_y = 0; k_y < k; k_y++) {
                                 col_index[4] = k_y;
                                 for (int k_x = 0; k_x < k; k_x++) {
                                     col_index[5] = k_x;
                                     T tmp = col[index_calc(6, col_shape, col_index)];
-                                    max_val = max_val < tmp ? tmp : max_val;
+                                    if (max_val < tmp) {
+                                        max_val = tmp;
+                                        argmax = k_y * k + k_x;
+                                    }
                                 }
                             }
                             this->y[index_calc(4, out_shape, out_index)] = max_val;
+                            this->argmax[index_calc(4, out_shape, out_index)] = argmax;
                         }
                     }
                 }
@@ -439,12 +483,16 @@ namespace layer {
             delete p_col;
             return &(this->y);
         }
-        virtual Tensor<T>* backward(Tensor<T>& din) {
+        virtual Tensor<T>* backward(Tensor<T>* p_dout) {
             #ifdef LAYER_DEBUG
             printf("[DEBUG:MaxPool2D] Backward\n");
             #endif
-            this->p_din = &din;
-            return &this->dout;
+            this->p_dout = p_dout;
+            Tensor<T>& dout = *p_dout;
+            const int* dout_shape = dout.getShape();
+            //Tensor<T>* din = col2im();
+
+            return &this->din;
         }
         virtual Tensor<T>* compile(Tensor<T>* p_x) {
             #ifdef LAYER_DEBUG
@@ -456,10 +504,89 @@ namespace layer {
             int out_w = ceilf((W - this->k) / this->s + 1);
             const int y_shape[] = { B, C, out_h, out_w };
             this->y.reshape(4, y_shape);
+            this->argmax.reshape(4, y_shape);
             return &this->y;
         }
     };
 
+    template <typename T>
+    class Criterion {
+    private:
+        string criterion_name;
+    protected:
+        Tensor<float>* p_pred = nullptr;
+        float loss = 0;
+    public:
+        Criterion(const char* cstr_name) : criterion_name(cstr_name) {
+
+        }
+        ~Criterion() {
+            if (this->p_pred) delete this->p_pred;
+        }
+        const char* getName() {
+            return this->criterion_name.c_str();
+        }
+        virtual Tensor<T>* forward(Tensor<T>* p_x, Tensor<int> p_t) {
+            return p_x;
+        }
+        virtual Tensor<T>* backward(Tensor<T>* p_dout) {
+            return p_dout;
+        }
+    };
+
+    template <typename T>
+    class SoftmaxWithLoss : Criterion<T> {
+    public:
+        SoftmaxWithLoss(const char* cstr_name) : Criterion<T>(cstr_name) {
+
+        }
+        ~SoftmaxWithLoss() {
+            ~Criterion<T>();
+        }
+        // Softmax & Cross Entropy Error
+        virtual Tensor<T>* forward(Tensor<T>* p_x, Tensor<int> p_t) {
+            Tensor<T>& x = *p_x;
+            Tensor<T>& pred = *this->p_pred;
+            const int x_dim = p_x->getDim();
+            const int* x_shape = p_x->getShape();   // B, C
+            const int B = x_shape[0], C = x_shape[1];
+            // Softmax
+            int x_index[2] = { 0, };
+            for (int b = 0; b < B; b++) {
+                x_index[0] = b;
+                // Get Max Value
+                T maxVal = -INFINITY;
+                for (int c = 0; c < C; c++) {
+                    x_index[1] = c;
+                    maxVal = maxVal < x[index_calc(x_dim, x_shape, x_index)];
+                }
+                // Calculate Sum
+                float sum = 0;
+                for (int c = 0; c < C; c++) {
+                    pred[index_calc(x_dim, x_shape, x_index)] -= maxVal;
+                    pred[index_calc(x_dim, x_shape, x_index)] = expf(pred[index_calc(x_dim, x_shape, x_index)]);
+                    sum += pred[index_calc(x_dim, x_shape, x_index)];
+                }
+                // Calculate Prediction
+                for (int c = 0; c < C; c++) {
+                    pred[index_calc(x_dim, x_shape, x_index)] = pred[index_calc(x_dim, x_shape, x_index)] / sum;
+                }
+                // Calculate Cross-Entropy-Loss
+                
+            }
+            return this->p_pred;
+        }
+        virtual Tensor<T>* backward(Tensor<T>* p_dout) {
+            return p_dout;
+        }
+        // Compile
+        virtual Tensor<T>* compile(Tensor<T>* p_x) {
+            const int x_dim = p_x->getDim();
+            const int* x_shape = p_x->getShape();   // B, C
+            this->p_pred = new Tensor<float>(x_dim, x_shape);
+            return this->p_pred;
+        }
+    };
 }
 
 #endif

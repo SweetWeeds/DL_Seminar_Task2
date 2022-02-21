@@ -22,9 +22,9 @@
 #define DATA_LOADER_H
 
 #include <stdio.h>
-typedef char BYTE;
 
 namespace data_loader {
+    typedef char BYTE;
     template <typename T>
     class DataLoader {
         private:
@@ -34,13 +34,16 @@ namespace data_loader {
             long fsize; // Unit: N * sizeof(T) Byte
         public:
         ~DataLoader() {
+            #ifdef DATA_LODER_DEBUG
+            printf("[DEBUG:DataLoader:~DataLoader] Destructor\n");
+            #endif
             if (data) delete data;
         }
 
         int copyDataOfRange(T* data, int from, int to) {
             if (size < to) {
-                #ifdef DEBUG
-                printf("[DEBUG:getDataOfRange] Get Data Out Of Range. (from:%d, to:%d)\n", from, to);
+                #ifdef DATA_LODER_DEBUG
+                printf("[DEBUG:DataLoader:getDataOfRange] Get Data Out Of Range. (from:%d, to:%d)\n", from, to);
                 #endif
                 return 1;
             }

@@ -10,7 +10,7 @@
  * Modified on Feb 17, 2022
  * Modification History:
  *      1. Written by Hankyul Kwon
- *      2. Modified by Han Kyul Kwon on April 27, 2017
+ *      2. Modified by Han Kyul Kwon on Feb 17, 2022
  *          (a) Add codes for normal execution. (on parctice hours)
  *
  * Compiler used: MSVC++ 14.16 (Visual Studio 2017 version 15.9)
@@ -19,29 +19,29 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-#define MAX_LAYER_NUM 100
-
 #include <string.h>
 #include <assert.h>
+#include "common.hpp"
 #include "data_loader.hpp"
 #include "tensor.hpp"
 #include "layer.hpp"
 
-using namespace tensor;
-using namespace layer;
-using namespace data_loader;
-
 namespace model {
+    using namespace tensor;
+    using namespace layer;
+    using namespace data_loader;
+
     template <typename T>
     class Model {
     private:
         Layer<T>* layers[MAX_LAYER_NUM];
+        Criterion<T>* criterion;
         int num_layers = 0;
         bool is_compiled = false;
         char* modelName = nullptr;
         DataLoader<T> dl;
     public:
-        Model(Layer<T>* layers[], int num_layers, const char* modelName) : num_layers(num_layers) {
+        Model(Layer<T>* layers[], Criterion<T>* criterion, int num_layers, const char* modelName) : num_layers(num_layers) {
             memcpy(this->layers, layers, num_layers * sizeof(Layer<T>*));
             int modelNameLen = strlen(modelName);
             this->modelName = new char[modelNameLen];
@@ -52,6 +52,7 @@ namespace model {
             for (int i = 0; i < num_layers; i++) {
                 delete this->layers[i];
             }
+            delete criterion;
         }
 
         Tensor<T>* forward(Tensor<T>* p_x) {
@@ -74,6 +75,8 @@ namespace model {
             DataLoader<float> dl;
             dl.load_data(fileName);
             int idx = 0;
+            // Forward
+            printf("[INFO] Starting forward compare...\n");
             for (int i = 0; i < num_layers; i++) {
                 p_x = this->layers[i]->forward(p_x);
                 Tensor<T> golden_tensor(p_x->getDim(), p_x->getShape());
@@ -81,8 +84,15 @@ namespace model {
                 dl.copyDataOfRange(p_data, idx, idx + p_x->getSize());
                 T tmp = golden_tensor.getMaxDiff(*p_x);
                 maxDiff = maxDiff < tmp ? tmp : maxDiff;
-                printf("[INFO] %s layer's max difference: %E\n", this->layers[i]->getName(), maxDiff);
+                printf("[INFO] %s layer's max difference:\t %e\n", this->layers[i]->getName(), maxDiff);
                 idx += p_x->getSize();
+            }
+            // Calculate Loss
+            //p_x = this->criterion->forward(p_x, );
+            // Backward
+            printf("[INFO] Starting backward compare...\n");
+            for (int i = num_layers - 1; i >= 0; i--) {
+
             }
             return 0;
         }

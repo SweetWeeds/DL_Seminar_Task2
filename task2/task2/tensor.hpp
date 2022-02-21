@@ -117,12 +117,10 @@ namespace tensor {
 
         // Indexing Operator([]) Overloading
         T& operator[](int idx) {
-            if (idx > this->size || idx < 0) {
-                #ifdef TENSOR_DEBUG
-                printf("[DEBUG:Tensor:operator[]] Indexing Out of Range\n");
-                #endif
-                return data[ idx < 0 ? 0 : (size-1) ];    // Return data[0] or data[size-1]
-            }
+            //if (idx > this->size || idx < 0) {
+            //    printf("[WARNING:Tensor:operator[]] Indexing Out of Range (size:%d, idx:%d)\n", this->size, idx);
+            //    return data[ idx < 0 ? 0 : (this->size-1) ];    // Return data[0] or data[size-1]
+            //}
             return data[idx];
         }
 

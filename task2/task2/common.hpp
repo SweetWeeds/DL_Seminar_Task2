@@ -23,7 +23,7 @@
 //#define DATA_LODER_DEBUG
 //#define LAYER_DEBUG
 //#define MODEL_DEBUG
-//#define TENSOR_DEBUG
+#define TENSOR_DEBUG
 
 #define MAX_LAYER_NUM   100
 #define MAX_TENSOR_DIM  10

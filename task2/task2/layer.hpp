@@ -133,17 +133,25 @@ namespace layer {
             const int out_h = (H + 2 * p - k) / s + 1;
             const int out_w = (W + 2 * p - k) / s + 1;
 
-            const int im_shape[] = { B, C, H + 2 * p + s - 1, W + 2 * p + s - 1 };
+            const int padded_im_shape[] = { B, C, H + 2 * p + s - 1, W + 2 * p + s - 1 };
+            const int im_H = H + s - 1, im_W = W + s - 1;
+            const int im_shape[] = { B, C, im_H, im_W };
             //const int col_shape[] = { B, C, out_h, out_w, k, k };
+            Tensor<T>* p_padded_im = new Tensor<T>(4, padded_im_shape);
             Tensor<T>* p_im = new Tensor<T>(4, im_shape);
+            Tensor<T>& padded_im = *p_padded_im;
             Tensor<T>& im = *p_im;
+            padded_im.dataInit();
 
-            int im_index[4] = { 0, };
+            int padded_im_index[4] = { 0, };
             int col_index[6] = { 0, };
+            int im_index[4] = { 0, };
             for (int b = 0; b < B; b++) {
+                padded_im_index[0] = b;
                 im_index[0] = b;
                 col_index[0] = b;
                 for (int c = 0; c < C; c++) {
+                    padded_im_index[1] = c;
                     im_index[1] = c;
                     col_index[1] = c;
                     for (int y = 0; y < k; y++) {
@@ -152,19 +160,30 @@ namespace layer {
                         for (int x = 0; x < k; x++) {
                             int x_max = x + s * out_w;
                             col_index[5] = x;
-                            for (int oh = 0; oh < out_h; oh++) {
-                                im_index[2] = y + s * oh;
-                                col_index[2] = oh;
-                                for (int ow = 0; ow < out_w; ow++) {
-                                    im_index[3] = x + s * ow;
-                                    col_index[3] = ow;
-                                    im[index_calc(4, im_shape, im_index)] += col[index_calc(6, col_shape, col_index)];
+                            for (int o_h = 0; o_h < out_h; o_h++) {
+                                padded_im_index[2] = y + s * o_h;
+                                col_index[2] = o_h;
+                                for (int o_w = 0; o_w < out_w; o_w++) {
+                                    padded_im_index[3] = x + s * o_w;
+                                    col_index[3] = o_w;
+                                    padded_im[index_calc(4, padded_im_shape, padded_im_index)] += col[index_calc(6, col_shape, col_index)];
                                 }
                             }
                         }
                     }
+                    // Parse im from padded_im
+                    for (int h = 0; h < im_H; h++) {
+                        im_index[2] = h;
+                        padded_im_index[2] = h + p;
+                        for (int w = 0; w < im_W; w++) {
+                            im_index[3] = w;
+                            padded_im_index[3] = w + p;
+                            im[index_calc(4, im_shape, im_index)] = padded_im[index_calc(4, padded_im_shape, padded_im_index)];
+                        }
+                    }
                 }
             }
+            delete p_padded_im;
             return p_im;
         }
     public:
@@ -175,6 +194,7 @@ namespace layer {
             if (p_dW) delete p_dW;
             if (p_b)  delete p_b;
             if (p_db) delete p_db;
+            if (p_dout) delete p_dout;
         }
         virtual Tensor<T>* forward(Tensor<T>* p_x) {
             #ifdef LAYER_DEBUG
@@ -330,6 +350,7 @@ namespace layer {
             #endif
             this->p_dout = p_dout;
             Tensor<T>& dout = *p_dout;
+            dout.reshape(this->y);
             Tensor<T>& db = *this->p_db;
             Tensor<T>& dW = *this->p_dW;
             Tensor<T>& col = *this->p_col;
@@ -382,10 +403,10 @@ namespace layer {
                                 col_index[3] = o_w;
                                 for (int k_y = 0; k_y < this->k; k_y++) {
                                     dW_index[2] = k_y;
-                                    col_index[4] = k - k_y; // Transpose
+                                    col_index[4] = k_y;
                                     for (int k_x = 0; k_x < this->k; k_x++) {
                                         dW_index[3] = k_x;
-                                        col_index[5] = k - k_x; // Transpose
+                                        col_index[5] = k_x;
                                         dW[index_calc(4, dW_shape, dW_index)] += 
                                             dout[index_calc(4, dout_shape, dout_index)] * col[index_calc(6, col_shape, col_index)];
                                     }
@@ -403,12 +424,12 @@ namespace layer {
             for (int b = 0; b < B; b++) {
                 col_index[0] = b;
                 dout_index[0] = b;
-                for (int i_ch = 0; i_ch < i_ch; i_ch++) {
-                    col_index[1] = i_ch;
-                    dW_index[1] = i_ch;
-                    for (int o_ch = 0; o_ch < out_ch; o_ch++) {
-                        dW_index[0] = o_ch;
-                        dout_index[1] = o_ch;
+                for (int o_ch = 0; o_ch < out_ch; o_ch++) {
+                    dW_index[0] = o_ch;
+                    dout_index[1] = o_ch;
+                    for (int i_ch = 0; i_ch < in_ch; i_ch++) {
+                        col_index[1] = i_ch;
+                        dW_index[1] = i_ch;
                         for (int o_h = 0; o_h < H; o_h++) {
                             col_index[2] = o_h;
                             dout_index[2] = o_h;
@@ -417,10 +438,10 @@ namespace layer {
                                 dout_index[3] = o_w;
                                 for (int k_y = 0; k_y < this->k; k_y++) {
                                     col_index[4] = k_y;
-                                    dW_index[2]  = k - k_y;
+                                    dW_index[2]  = k_y;
                                     for (int k_x = 0; k_x < this->k; k_x++) {
                                         col_index[5] = k_x;
-                                        dW_index[3]  = k - k_x;
+                                        dW_index[3]  = k_x;
                                         dcol[index_calc(6, col_shape, col_index)] += dout[index_calc(4, dout_shape, dout_index)] * (*this->p_W)[index_calc(4, dW_shape, dW_index)];
                                     }
                                 }
@@ -432,8 +453,10 @@ namespace layer {
 
             // dcol = np.dot(dout, self.col_W.T)
             Tensor<T>* p_din = this->col2im(p_dcol, this->k, this->s, this->p);
-            this->din = *p_din;
+            this->din.reshape(p_din->getDim(), p_din->getShape());
+            memcpy(this->din.getData(), p_din->getData(), p_din->getSize()*sizeof(T));
             delete p_din;
+            delete p_dcol;
             return &this->din;
         }
         virtual Tensor<T>* compile(Tensor<T>* p_x) {
@@ -602,10 +625,11 @@ namespace layer {
     class MaxPool2D : Layer<T> {
     private:
         const int k, s; // k: kernel size, s: stride
+        int out_h = 0, out_w = 0;
         Tensor<int> argmax; // Argument Max
     public:
         MaxPool2D(const int k=2, const int s=2, const char* cstr_ln="") : k(k), s(s), Layer<T>(cstr_ln) {
-
+            
         }
         virtual Tensor<T>* forward(Tensor<T>* p_x) {
             #ifdef LAYER_DEBUG
@@ -616,8 +640,8 @@ namespace layer {
             const int  x_dim = x.getDim();      // Dimension: 4
             const int* x_shape = x.getShape();  // B, C, H, W
             const int B = x_shape[0], C = x_shape[1], H = x_shape[2], W = x_shape[3];
-            int out_h = ceilf((H - this->k) / this->s + 1);
-            int out_w = ceilf((W - this->k) / this->s + 1);
+            //out_h = ceilf((H - this->k) / this->s + 1);
+            //out_w = ceilf((W - this->k) / this->s + 1);
             Tensor<T>* p_col = this->im2col(p_x, this->k, this->s);    // col[B][C][out_h][out_w][k][k]
             Tensor<T>& col = *p_col;
             const int* col_shape = col.getShape();
@@ -664,21 +688,46 @@ namespace layer {
             #endif
             this->p_dout = p_dout;
             Tensor<T>& dout = *p_dout;
-            const int* dout_shape = dout.getShape();
-            //Tensor<T>* din = col2im();
-
+            const int* dout_shape = dout.getShape();    // B, C, out_h, out_w
+            const int* din_shape = this->din.getShape();    // B, C, in_h, in_w
+            const int B = dout_shape[0], C = dout_shape[1];
+            int din_index[4] = { 0, };
+            int dout_index[4] = { 0, };
+            this->din.dataInit();
+            for (int b = 0; b < B; b++) {
+                din_index[0] = b;
+                dout_index[0] = b;
+                for (int c = 0; c < C; c++) {
+                    din_index[1] = c;
+                    dout_index[1] = c;
+                    for (int h = 0; h < out_h; h++) {
+                        dout_index[2] = h;
+                        for (int w = 0; w < out_w; w++) {
+                            dout_index[3] = w;
+                            int argmax = this->argmax[index_calc(4, dout_shape, dout_index)];
+                            int k_y = argmax / this->k, k_x = argmax % this->k;
+                            din_index[2] = k_y, din_index[3] = k_x;
+                            this->din[index_calc(4, din_shape, din_index)] = dout[index_calc(4, dout_shape, dout_index)];
+                        }
+                    }
+                }
+            }
             return &this->din;
         }
         virtual Tensor<T>* compile(Tensor<T>* p_x) {
             #ifdef LAYER_DEBUG
             printf("[DEBUG:LAYER:MaxPool2D] Compile\n");
             #endif
+            const int x_dim = p_x->getDim();
             const int* x_shape = p_x->getShape();
             const int B = x_shape[0], C = x_shape[1], H = x_shape[2], W = x_shape[3];
-            int out_h = ceilf((H - this->k) / this->s + 1);
-            int out_w = ceilf((W - this->k) / this->s + 1);
+            out_h = ceilf((H - this->k) / this->s + 1);
+            out_w = ceilf((W - this->k) / this->s + 1);
             const int y_shape[] = { B, C, out_h, out_w };
             this->y.reshape(4, y_shape);
+            this->din.reshape(x_dim, x_shape);
+            //this->p_dout->reshape(4, y_shape);
+            this->p_dout = new Tensor<T>(4, y_shape);
             this->argmax.reshape(4, y_shape);
             return &this->y;
         }

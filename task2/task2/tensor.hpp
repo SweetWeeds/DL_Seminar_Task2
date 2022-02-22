@@ -87,8 +87,9 @@ namespace tensor {
             assert(this->shape);
             for (int i = 0; i < dim; i++) {
                 this->size *= shape[i];
-                this->shape[i] = shape[i];
+                //this->shape[i] = shape[i];
             }
+            memcpy(this->shape, shape, dim * sizeof(int));
             if (this->data) delete this->data;
             this->data = new T[size];
             assert(this->data);
@@ -118,12 +119,10 @@ namespace tensor {
 
         // Indexing Operator([]) Overloading
         T& operator[](int idx) {
-            #ifdef TENSOR_DEBUG
             if (idx > this->size || idx < 0) {
                 printf("[WARNING:Tensor:operator[]] Indexing Out of Range (size:%d, idx:%d)\n", this->size, idx);
                 return data[ idx < 0 ? 0 : (this->size-1) ];    // Return data[0] or data[size-1]
             }
-            #endif
             return data[idx];
         }
 

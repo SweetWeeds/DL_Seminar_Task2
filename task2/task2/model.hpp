@@ -84,7 +84,7 @@ namespace model {
                 dl.copyDataOfRange(p_data, idx, idx + p_x->getSize());
                 float tmp = golden_tensor.getDiffError(*p_x);
                 //maxDiff = maxDiff < tmp ? tmp : maxDiff;
-                printf("[INFO] %s layer's max difference:\t %.4f%%\n", this->layers[i]->getName(), tmp);
+                printf("[INFO] %s layer's forward max difference:\t %.4f%%\n", this->layers[i]->getName(), tmp);
                 idx += p_x->getSize();
             }
 
@@ -111,7 +111,7 @@ namespace model {
             idx += 1;
             printf("[INFO] Loss Result's difference:\t %.4f%%\n", abs(loss-golden_loss) / golden_loss * 100.0);
 
-            // Backward
+            // Cross-Entropy-Error Diff
             printf("[INFO] Starting backward compare...\n");
             Tensor<T>* p_dout = nullptr;
             p_dout = this->criterion->backward(p_dout);
@@ -130,6 +130,7 @@ namespace model {
             }
             printf("[INFO] Cross-Entropy-Error Backward Result's difference:\t %.4f%%\n", y_maxDiff / golden_tensor[y_maxDiff_idx] * 100.0);
 
+            // Backward Difference
             for (int i = num_layers - 1; i >= 0; i--) {
                 p_dout = this->layers[i]->backward(p_dout);
                 Tensor<T> golden_tensor(p_dout->getDim(), p_dout->getShape());
@@ -137,8 +138,27 @@ namespace model {
                 dl.copyDataOfRange(p_data, idx, idx + p_dout->getSize());
                 float tmp = golden_tensor.getDiffError(*p_dout);
                 //maxDiff = maxDiff < tmp ? tmp : maxDiff;
-                printf("[INFO] %s layer's max difference:\t %.4f%%\n", this->layers[i]->getName(), tmp);
+                // Grad W, b diff
                 idx += p_dout->getSize();
+                printf("[INFO] %s layer's backward max difference:\t %.4f%%\n", this->layers[i]->getName(), tmp);
+                if (this->layers[i]->get_dW() && this->layers[i]->get_db()) {
+                    Tensor<T>* p_dW = this->layers[i]->get_dW();
+                    Tensor<T>* p_db = this->layers[i]->get_db();
+                    
+                    // dW
+                    Tensor<T> golden_dW(p_dW->getDim(), p_dW->getShape());
+                    dl.copyDataOfRange(golden_dW.getData(), idx, idx + p_dW->getSize());
+                    idx += p_dW->getSize();
+                    tmp = golden_dW.getDiffError(*p_dW);
+                    printf("[INFO] %s layer's gradient-W difference:\t %.4f%%\n", this->layers[i]->getName(), tmp);
+
+                    // db
+                    Tensor<T> golden_db(p_db->getDim(), p_db->getShape());
+                    dl.copyDataOfRange(golden_db.getData(), idx, idx + p_db->getSize());
+                    idx += p_db->getSize();
+                    tmp = golden_db.getDiffError(*p_db);
+                    printf("[INFO] %s layer's gradient-b difference:\t %.4f%%\n", this->layers[i]->getName(), tmp);
+                }
             }
             return 0;
         }

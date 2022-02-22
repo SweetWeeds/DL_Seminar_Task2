@@ -194,7 +194,6 @@ namespace layer {
             if (p_dW) delete p_dW;
             if (p_b)  delete p_b;
             if (p_db) delete p_db;
-            if (p_dout) delete p_dout;
         }
         virtual Tensor<T>* forward(Tensor<T>* p_x) {
             #ifdef LAYER_DEBUG
@@ -233,6 +232,9 @@ namespace layer {
             this->p_W = p_W;
             this->p_b = p_b;
         }
+        Tensor<T>* get_dW() {
+            return this->p_dW;
+        }
         int getWeightSize() {
             if (this->p_W != nullptr) return this->p_W->getSize();
             else return 0;
@@ -240,6 +242,9 @@ namespace layer {
         const int* getWeightShape() {
             if (this->p_W != nullptr) return this->p_W->getShape();
             else return nullptr;
+        }
+        Tensor<T>* get_db() {
+            return this->p_db;
         }
         int getBiasSize() {
             if (this->p_b != nullptr) return this->p_b->getSize();
@@ -280,7 +285,7 @@ namespace layer {
             this->p_db = new Tensor<T>(1, shape_buf);
         }
         ~Conv2D() {
-            delete this->p_col;
+            if (this->p_col) delete this->p_col;
         }
         virtual Tensor<T>* forward(Tensor<T>* p_x) {
             #ifdef LAYER_DEBUG
@@ -295,7 +300,10 @@ namespace layer {
             int out_h = 1 + (int)( (H - this->k + 2 * this->p) / this->s );
             int out_w = 1 + (int)( (W - this->k + 2 * this->p) / this->s );
 
-            if (this->p_col) delete p_col;
+            if (this->p_col) {
+                delete p_col;
+                this->p_col = nullptr;
+            }
             this->p_col = this->im2col(p_x, this->k, this->s, this->p);    // col[B][in_ch][out_h][out_w][k][k]
             Tensor<T>& col = *this->p_col;
 
@@ -520,17 +528,43 @@ namespace layer {
             #endif
             this->p_dout = p_dout;
             Tensor<T>& dout = *p_dout;
+            Tensor<T>& x = *this->p_x;
             Tensor<T>& W = *this->p_W;
             Tensor<T>& dW = *this->p_dW;
             Tensor<T>& db = *this->p_db;
             const int* din_shape = this->din.getShape();    // B, in_fmap
             const int* dout_shape = dout.getShape();        // B, out_fmap
+            const int* x_shape = din_shape;
             const int* W_shape = W.getShape();              // in_fmap, out_fmap
             const int* db_shape = db.getShape();
             const int B = din_shape[0], O = din_shape[1];
             int din_index[2] = { 0, };
             int dout_index[2] = { 0, };
+            int x_index[2] = { 0, };
             int W_index[2] = { 0, };
+
+            // Weight Grad (dW = np.dot(x.T, dout))
+            dW.dataInit();
+            db.dataInit();
+            for (int b = 0; b < B; b++) {
+                dout_index[0] = b;
+                x_index[0] = b;
+                for (int i = 0; i < this->in_fmap; i++) {
+                    W_index[0] = i;
+                    x_index[1] = i;
+                    for (int o = 0; o < this->out_fmap; o++) {
+                        dout_index[1] = o;
+                        W_index[1] = o;
+                        dW[index_calc(2, W_shape, W_index)] += x[index_calc(2, x_shape, x_index)] * dout[index_calc(2, dout_shape, dout_index)];
+                    }
+                }
+                for (int o = 0; o < this->out_fmap; o++) {
+                    dout_index[1] = o;
+                    db[o] += dout[index_calc(2, dout_shape, dout_index)];
+                }
+            }
+
+            // Backprop
             this->din.dataInit();
             for (int b = 0; b < B; b++) {
                 din_index[0] = b;
@@ -706,7 +740,7 @@ namespace layer {
                             dout_index[3] = w;
                             int argmax = this->argmax[index_calc(4, dout_shape, dout_index)];
                             int k_y = argmax / this->k, k_x = argmax % this->k;
-                            din_index[2] = k_y, din_index[3] = k_x;
+                            din_index[2] = h * k + k_y, din_index[3] = w * k + k_x;
                             this->din[index_calc(4, din_shape, din_index)] = dout[index_calc(4, dout_shape, dout_index)];
                         }
                     }

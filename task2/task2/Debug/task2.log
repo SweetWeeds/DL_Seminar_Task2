@@ -1,6 +1,6 @@
 ﻿  task2.cpp
-c:\users\user\workspace\dl_seminar_task2\task2\task2\layer.hpp(724): warning C4244: '인수': 'int'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-  c:\users\user\workspace\dl_seminar_task2\task2\task2\layer.hpp(717): note: 클래스 템플릿 멤버 함수 'tensor::Tensor<float> *layer::MaxPool2D<T>::compile(tensor::Tensor<T> *)'을(를) 컴파일하고 있습니다.
+c:\users\user\workspace\dl_seminar_task2\task2\task2\layer.hpp(758): warning C4244: '인수': 'int'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+  c:\users\user\workspace\dl_seminar_task2\task2\task2\layer.hpp(751): note: 클래스 템플릿 멤버 함수 'tensor::Tensor<float> *layer::MaxPool2D<T>::compile(tensor::Tensor<T> *)'을(를) 컴파일하고 있습니다.
           with
           [
               T=float
@@ -11,7 +11,7 @@ c:\users\user\workspace\dl_seminar_task2\task2\task2\layer.hpp(724): warning C42
               T=float
           ]
   c:\users\user\workspace\dl_seminar_task2\task2\task2\task2.cpp(51): note: 컴파일 중인 함수 템플릿 인스턴스화 'model::Model<float> *vgg8::build<float>(void)'에 대한 참조를 확인하십시오.
-c:\users\user\workspace\dl_seminar_task2\task2\task2\layer.hpp(724): warning C4244: '=': 'float'에서 'int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-c:\users\user\workspace\dl_seminar_task2\task2\task2\layer.hpp(725): warning C4244: '인수': 'int'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-c:\users\user\workspace\dl_seminar_task2\task2\task2\layer.hpp(725): warning C4244: '=': 'float'에서 'int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+c:\users\user\workspace\dl_seminar_task2\task2\task2\layer.hpp(758): warning C4244: '=': 'float'에서 'int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+c:\users\user\workspace\dl_seminar_task2\task2\task2\layer.hpp(759): warning C4244: '인수': 'int'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+c:\users\user\workspace\dl_seminar_task2\task2\task2\layer.hpp(759): warning C4244: '=': 'float'에서 'int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
   task2.vcxproj -> C:\Users\user\workspace\DL_Seminar_Task2\task2\Debug\task2.exe

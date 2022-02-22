@@ -18,7 +18,7 @@
  */
 
 #include <iostream>
-#include <cstdio>
+#include <stdio.h>
 #include "model.hpp"
 #include "tensor.hpp"
 #include "vgg8.hpp"
@@ -62,7 +62,7 @@ int input_test() {
     printf("[INFO] Comparing with golden model in Python Numpy...\n");
     model->diff(&input_tensor, &label_tensor, "intermediate_fmap.bin");
 
-    delete model;
+    //delete model;
     return 0;
 }
 
